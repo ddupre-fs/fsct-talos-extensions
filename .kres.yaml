@@ -46,6 +46,7 @@ spec:
     - nvidia-open-gpu-kernel-modules-production
     - nvme-cli
     - panfrost
+    - pf_ring
     - qemu-guest-agent
     - qlogic-firmware
     - realtek-firmware

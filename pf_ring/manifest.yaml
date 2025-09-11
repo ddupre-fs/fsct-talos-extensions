@@ -1,0 +1,10 @@
+version: v1alpha1
+metadata:
+  name: pf_ring
+  version: "1.2.3"
+  author: Forescout Technologies
+  description: |
+    This system extension provides kernel module driver for pf_ring built against a specific Talos version.
+  compatibility:
+    talos:
+      version: ">= v1.10.0"
