@@ -39,6 +39,8 @@ If the field is marked as `Needs Maintainer`, it means that the package is curre
 | mei                                       | Nick Meyer         | [e3b0c442](https://github.com/e3b0c442)                              |
 | metal-agent                               | Sidero Labs        | NA                                                                   |
 | nebula                                    | s e                | [iamwacko](https://github.com/iamwacko)                              |
+| netbird                                   | Łukasz Szczepański | [l-szczepanski-speednet](https://github.com/l-szczepanski-speednet)  |
+| nfs-utils                                 | Clément Nussbaumer | [clementnuss](https://github.com/clementnuss)                        |
 | nut-client                                | Sidero Labs        | NA                                                                   |
 | nvidia-container-toolkit-lts              | Sidero Labs        | NA                                                                   |
 | nivida-container-toolkit-production       | Sidero Labs        | NA                                                                   |
@@ -59,6 +61,7 @@ If the field is marked as `Needs Maintainer`, it means that the package is curre
 | tailscale                                 | Beau Trepp         | [btrepp](https://github.com/btrepp)                                  |
 | thunderbolt                               | Igor Rzegocki      | [ajgon](https://github.com/ajgon)                                    |
 | uinput                                    | Judah Rand         | [judahrand](https://github.com/judahrand)                            |
+| usb-audio-drivers                         | Breland Miley      | [mindstorms6](https://github.com/mindstorms6)                        |
 | usb-modem-drivers                         | Sidero Labs        | NA                                                                   |
 | util-linux-tools                          | Sidero Labs        | NA                                                                   |
 | v4l-uvc-drivers                           | Jacob McSwain      | [USA-RedDragon](https://github.com/USA-RedDragon)                    |

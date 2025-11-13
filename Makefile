@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2025-09-05T15:58:35Z by kres cc45611.
+# Generated on 2025-11-12T17:46:46Z by kres 911d166.
 
 # common variables
 
@@ -25,7 +25,7 @@ SOURCE_DATE_EPOCH := $(shell git log $(INITIAL_COMMIT_SHA) --pretty=%ct)
 
 # sync bldr image with pkgfile
 
-BLDR_RELEASE := v0.5.3
+BLDR_RELEASE := v0.5.5
 BLDR_IMAGE := ghcr.io/siderolabs/bldr:$(BLDR_RELEASE)
 BLDR := docker run --rm --user $(shell id -u):$(shell id -g) --volume $(PWD):/src --entrypoint=/bldr $(BLDR_IMAGE) --root=/src
 
@@ -51,10 +51,11 @@ COMMON_ARGS += $(BUILD_ARGS)
 # extra variables
 
 EXTENSIONS_IMAGE_REF ?= $(REGISTRY_AND_USERNAME)/extensions:$(TAG)
-PKGS ?= v1.12.0-alpha.0-20-gab1e866
+PKGS ?= v1.12.0
 PKGS_PREFIX ?= ghcr.io/siderolabs
-TOOLS ?= v1.12.0-alpha.0-6-gc37ac80
+TOOLS ?= v1.12.0
 TOOLS_PREFIX ?= ghcr.io/siderolabs
+IMAGE_SIGNER_RELEASE ?= v0.1.1
 
 # targets defines all the available targets
 
@@ -90,7 +91,9 @@ TARGETS += mdadm
 TARGETS += mei
 TARGETS += metal-agent
 TARGETS += nebula
+TARGETS += netbird
 TARGETS += newt
+TARGETS += nfs-utils
 TARGETS += nfsd
 TARGETS += nfsrahead
 TARGETS += nut-client
@@ -98,6 +101,7 @@ TARGETS += nvidia-container-toolkit-lts
 TARGETS += nvidia-container-toolkit-production
 TARGETS += nvidia-fabricmanager-lts
 TARGETS += nvidia-fabricmanager-production
+TARGETS += nvidia-gdrdrv-device
 TARGETS += nvidia-open-gpu-kernel-modules-lts
 TARGETS += nvidia-open-gpu-kernel-modules-production
 TARGETS += nvme-cli
@@ -114,12 +118,14 @@ TARGETS += tenstorrent
 TARGETS += thunderbolt
 TARGETS += uinput
 TARGETS += usb-modem-drivers
+TARGETS += usb-audio-drivers
 TARGETS += util-linux-tools
 TARGETS += v4l-uvc-drivers
 TARGETS += vc4
 TARGETS += vmtoolsd-guest-agent
 TARGETS += wasmedge
 TARGETS += xdma-driver
+TARGETS += xe
 TARGETS += xen-guest-agent
 TARGETS += youki
 TARGETS += zerotier
@@ -206,15 +212,19 @@ reproducibility-test-local-%:  ## Builds the specified target defined in the Pkg
 	@diffoscope $(ARTIFACTS)/build-a $(ARTIFACTS)/build-b
 	@rm -rf $(ARTIFACTS)/build-a $(ARTIFACTS)/build-b
 
+$(ARTIFACTS)/bldr: $(ARTIFACTS)  ## Downloads bldr binary.
+	@curl -sSL https://github.com/siderolabs/bldr/releases/download/$(BLDR_RELEASE)/bldr-$(OPERATING_SYSTEM)-$(GOARCH) -o $(ARTIFACTS)/bldr
+	@chmod +x $(ARTIFACTS)/bldr
+
+.PHONY: update-checksums
+update-checksums: $(ARTIFACTS)/bldr  ## Updates the checksums in the Pkgfile/vars.yaml based on the changed version variables.
+	@git diff -U0 | $(ARTIFACTS)/bldr update
+
 nonfree: $(NONFREE_TARGETS)  ## Builds all nonfree targets defined.
 
 .PHONY: $(TARGETS) $(NONFREE_TARGETS)
 $(TARGETS) $(NONFREE_TARGETS): $(ARTIFACTS)/bldr
 	@$(MAKE) docker-$@ TARGET_ARGS="--tag=$(REGISTRY)/$(USERNAME)/$@:$(shell $(ARTIFACTS)/bldr eval --target $@ --build-arg TAG=$(TAG) '{{.VERSION}}' 2>/dev/null) --push=$(PUSH)"
-
-$(ARTIFACTS)/bldr: $(ARTIFACTS)  ## Downloads bldr binary.
-	@curl -sSL https://github.com/siderolabs/bldr/releases/download/$(BLDR_RELEASE)/bldr-$(OPERATING_SYSTEM)-$(GOARCH) -o $(ARTIFACTS)/bldr
-	@chmod +x $(ARTIFACTS)/bldr
 
 .PHONY: deps.svg
 deps.svg:  ## Generates a dependency graph of the Pkgfile.
@@ -253,17 +263,18 @@ internal/extensions/descriptions.yaml: internal/extensions/image-digests
 	  crane export $$image - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml; \
 	done
 
+.PHONY: $(ARTIFACTS)/image-signer
+$(ARTIFACTS)/image-signer:
+	@curl -sSL https://github.com/siderolabs/go-tools/releases/download/$(IMAGE_SIGNER_RELEASE)/image-signer-$(OPERATING_SYSTEM)-$(GOARCH) -o $(ARTIFACTS)/image-signer
+	@chmod +x $(ARTIFACTS)/image-signer
+
 .PHONY: sign-images
-sign-images:
-	@for image in $(shell crane export $(EXTENSIONS_IMAGE_REF) | tar x --to-stdout image-digests) $(EXTENSIONS_IMAGE_REF)@$$(crane digest $(EXTENSIONS_IMAGE_REF)); do \
-	  echo '==>' $$image; \
-	  cosign verify $$image --certificate-identity-regexp '@siderolabs\.com$$' --certificate-oidc-issuer https://accounts.google.com || \
-	    cosign sign --yes $$image; \
-	done
+sign-images: $(ARTIFACTS)/image-signer
+	@$(ARTIFACTS)/image-signer sign --timeout=15m $(shell crane export $(EXTENSIONS_IMAGE_REF) | tar x --to-stdout image-digests) $(EXTENSIONS_IMAGE_REF)@$$(crane digest $(EXTENSIONS_IMAGE_REF))
 
 .PHONY: grype-scan
 grype-scan:
-	@$(MAKE) local-$@ DEST=$(ARTIFACTS)/grype-scan
+	@$(MAKE) local-$@ DEST=$(ARTIFACTS)/grype-scan PLATFORM=linux/amd64
 
 .PHONY: rekres
 rekres:
