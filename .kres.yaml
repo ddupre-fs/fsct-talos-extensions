@@ -84,11 +84,11 @@ spec:
       - name: EXTENSIONS_IMAGE_REF
         defaultValue: $(REGISTRY_AND_USERNAME)/extensions:$(TAG)
       - name: PKGS
-        defaultValue: v1.11.0-18-g1a25681
+        defaultValue: v1.11.0-29-gaee690b
       - name: PKGS_PREFIX
         defaultValue: ghcr.io/siderolabs
       - name: TOOLS
-        defaultValue: v1.11.0-2-g8556c73
+        defaultValue: v1.11.0-4-g05ee846
       - name: TOOLS_PREFIX
         defaultValue: ghcr.io/siderolabs
   useBldrPkgTagResolver: true
@@ -113,6 +113,8 @@ spec:
     - name: internal/extensions/image-digests
       toplevel: true
     - name: internal/extensions/descriptions.yaml
+      toplevel: true
+    - name: $(ARTIFACTS)/image-signer
       toplevel: true
     - name: sign-images
       toplevel: true
@@ -209,18 +211,62 @@ spec:
         done
 ---
 kind: custom.Step
+name: $(ARTIFACTS)/image-signer
+spec:
+  makefile:
+    enabled: true
+    phony: true
+    variables:
+      - name: IMAGE_SIGNER_RELEASE
+        defaultValue: v0.1.1
+    script:
+      - |
+        @curl -sSL https://github.com/siderolabs/go-tools/releases/download/$(IMAGE_SIGNER_RELEASE)/image-signer-$(OPERATING_SYSTEM)-$(GOARCH) -o $(ARTIFACTS)/image-signer
+        @chmod +x $(ARTIFACTS)/image-signer
+---
+kind: custom.Step
 name: sign-images
 spec:
   makefile:
     enabled: true
     phony: true
+    depends:
+      - $(ARTIFACTS)/image-signer
     script:
       - |
-        @for image in $(shell crane export $(EXTENSIONS_IMAGE_REF) | tar x --to-stdout image-digests) $(EXTENSIONS_IMAGE_REF)@$$(crane digest $(EXTENSIONS_IMAGE_REF)); do \
-          echo '==>' $$image; \
-          cosign verify $$image --certificate-identity-regexp '@siderolabs\.com$$' --certificate-oidc-issuer https://accounts.google.com || \
-            cosign sign --yes $$image; \
-        done
+        @$(ARTIFACTS)/image-signer sign --timeout=15m $(shell crane export $(EXTENSIONS_IMAGE_REF) | tar x --to-stdout image-digests) $(EXTENSIONS_IMAGE_REF)@$$(crane digest $(EXTENSIONS_IMAGE_REF))
+---
+kind: custom.Step
+name: grype-scan
+spec:
+  makefile:
+    enabled: true
+    phony: true
+    script:
+      - "@$(MAKE) local-$@ DEST=$(ARTIFACTS)/grype-scan"
+      # - "@$(MAKE) target-$@ TARGET_ARGS=\"--build-arg=GRYPE_EXTRA_ARGS='--fail-on=negligible'\""
+  ghaction:
+    enabled: true
+    cronOnly: true
+    jobs:
+      - name: grype-scan
+        runnerGroup: pkgs
+        triggerLabels:
+        - integration/grype
+        crons:
+          - '30 7 * * *'
+        artifacts:
+          enabled: true
+          skipArtifactDownload: true
+          additional:
+            - name: results
+              paths:
+                - _out/grype-scan/linux_amd64/combined.spdx.json
+                - _out/grype-scan/linux_amd64/grype-scan.log
+                - _out/grype-scan/linux_arm64/combined.spdx.json
+                - _out/grype-scan/linux_arm64/grype-scan.log
+              retentionDays: "180"
+              always: true
 ---
 kind: common.Renovate
 spec:
